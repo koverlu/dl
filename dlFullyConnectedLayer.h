@@ -14,7 +14,6 @@ public:
 	void UpdateWB(MatrixXf& delta);
 	void CalDelta(MatrixXf& data, MatrixXf& dst_delta);
 	void SetWB(MatrixXf& weight, MatrixXf& blas);
-
 	dlFullyConnectedLayer* m_pUpLayer;
 	dlFullyConnectedLayer* m_pDownLayer;
 	uint m_inputSize;

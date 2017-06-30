@@ -28,7 +28,7 @@ dlFullyConnectedLayer::dlFullyConnectedLayer(uint inputSize, uint outputSize, Fu
 	if (inputSize > 0)
 	{
 		//m_weight(OUTPUT, INPUT)
-		m_weight = MatrixXf::Zero(m_outputSize, inputSize);
+		m_weight = MatrixXf::Random(m_outputSize, inputSize) * 0.1f;
 	}
 	m_rate = 0.1f;
 }
