@@ -1,8 +1,6 @@
 #pragma once
 #include "dlLayer.h"
 
-typedef double(*FunActivator)(double);
-
 class dlFullyConnectedLayer
 {
 public:

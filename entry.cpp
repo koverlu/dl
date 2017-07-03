@@ -161,20 +161,26 @@ void test()
 
 void main(int argc, char * argv[])
 {
-	if (argc == 2)
-	{
-		string str = argv[1];
-		if (str == "t")
-		{
-			train();
-		}
-		else
-			DBG_PRINT("Wrong argument!\n");
-	}
-	else if (argc == 1)
-	{
-		test();
-	}
-	else
-		DBG_PRINT("Wrong argument!\n");	
+	//if (argc == 2)
+	//{
+	//	string str = argv[1];
+	//	if (str == "t")
+	//	{
+	//		train();
+	//	}
+	//	else
+	//		DBG_PRINT("Wrong argument!\n");
+	//}
+	//else if (argc == 1)
+	//{
+	//	test();
+	//}
+	//else
+	//	DBG_PRINT("Wrong argument!\n");	
+	Matrix3i m1;
+	m1 << 1, 2, 3, 4, 5, 6, 7, 8, 9;
+	Matrix2i m2;
+	m2 << 1, 2, 3, 4;
+	Conv<MatrixXd> re(a, b);
+
 }
