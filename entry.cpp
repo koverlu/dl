@@ -3,7 +3,8 @@
 #include "dlNetwork.h"
 #include "dlFullyConnectedLayer.h"
 #include <fstream>
-//#include <iostream>
+#include "Conv.h"
+#include <iostream>
 extern void TestMain();
 
 struct MNISTLabelFileHeader
@@ -177,10 +178,20 @@ void main(int argc, char * argv[])
 	//}
 	//else
 	//	DBG_PRINT("Wrong argument!\n");	
-	Matrix3i m1;
-	m1 << 1, 2, 3, 4, 5, 6, 7, 8, 9;
-	Matrix2i m2;
-	m2 << 1, 2, 3, 4;
-	Conv<MatrixXd> re(a, b);
+	MatrixXi mA(5, 5);
+	mA << 1, 1, 1, 0, 0, 0, 1, 1, 1, 0, 0, 0, 1, 1, 1, 0, 0, 1, 1, 0, 0, 1, 1, 0, 0;
+	MatrixXi mB(3, 3);
+	mB << 1, 0, 1, 0, 1, 0, 1, 0, 1;
+	MatrixXi mR = Conv(mA, mB);
+	cout << mR << endl;
+	MatrixXi mR_pad = Padding(mR, 1, 1);
+	cout << mR_pad << endl;
+	MatrixXi mR_V = FlipV(mR);
+	cout << mR_V << endl;
+	MatrixXi mR_M = EleWiseMul(mR, mR_V);
+	cout << mR_M << endl;
+	cout << mR_M.sum() << endl;
+	getchar();
+	//Conv<MatrixXd> re(a, b);
 
 }
