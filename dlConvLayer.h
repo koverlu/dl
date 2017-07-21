@@ -8,6 +8,4 @@ public:
 		uint zeroPadding, ActivatorType activator, dlLayer* pUpLayer);
 	virtual void Forward();
 	virtual void Backward();
-private:
-	Vector3i m_filterDim;
 };

@@ -1,7 +1,7 @@
 #include "ce.h"
 #include "dlDef.h"
 #include "dlNetwork.h"
-#include "dlFullyConnectedLayer.h"
+#include "dlConvLayer.h"
 #include <fstream>
 #include "Conv.h"
 #include <iostream>
@@ -178,20 +178,21 @@ void main(int argc, char * argv[])
 	//}
 	//else
 	//	DBG_PRINT("Wrong argument!\n");	
-	MatrixXi mA(5, 5);
-	mA << 1, 1, 1, 0, 0, 0, 1, 1, 1, 0, 0, 0, 1, 1, 1, 0, 0, 1, 1, 0, 0, 1, 1, 0, 0;
-	MatrixXi mB(3, 3);
-	mB << 1, 0, 1, 0, 1, 0, 1, 0, 1;
-	MatrixXi mR = Conv(mA, mB);
-	cout << mR << endl;
-	MatrixXi mR_pad = Padding(mR, 1, 1);
-	cout << mR_pad << endl;
-	MatrixXi mR_V = FlipV(mR);
-	cout << mR_V << endl;
-	MatrixXi mR_M = EleWiseMul(mR, mR_V);
-	cout << mR_M << endl;
-	cout << mR_M.sum() << endl;
-	getchar();
+	//MatrixXi mA(5, 5);
+	//mA << 1, 1, 1, 0, 0, 0, 1, 1, 1, 0, 0, 0, 1, 1, 1, 0, 0, 1, 1, 0, 0, 1, 1, 0, 0;
+	//MatrixXi mB(3, 3);
+	//mB << 1, 0, 1, 0, 1, 0, 1, 0, 1;
+	//MatrixXi mR = Conv(mA, mB);
+	//cout << mR << endl;
+	//MatrixXi mR_pad = Padding(mR, 1, 1);
+	//cout << mR_pad << endl;
+	//MatrixXi mR_V = FlipV(mR);
+	//cout << mR_V << endl;
+	//MatrixXi mR_M = EleWiseMul(mR, mR_V);
+	//cout << mR_M << endl;
+	//cout << mR_M.sum() << endl;
+	//getchar();
 	//Conv<MatrixXd> re(a, b);
-
+	dlConvLayer testLayer(DL_HIDDEN, Vector3i(5, 5, 3), Vector3i(3, 3, 3), 2, 0, ACTIV_RELU, NULL);
+	testLayer.GradientCheck();
 }

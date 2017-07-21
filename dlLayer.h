@@ -18,7 +18,8 @@ enum dlLayerType
 enum ActivatorType
 {
 	ACTIV_SIGMOID,
-	ACTIV_RELU
+	ACTIV_RELU,
+	ACTIV_NONE
 };
 
 template<typename T>
@@ -47,16 +48,19 @@ struct dlFilter
 class dlLayer
 {
 public:
-	dlLayer(dlLayerType type, Vector3i inDim, Vector3i outDim, ActivatorType activator, dlLayer* pUpLayer);
+	dlLayer(dlLayerType type, Vector3i inDim, Vector3i filterDim, ActivatorType activator, dlLayer* pUpLayer);
 	virtual void Forward() = 0;
 	virtual void Backward() = 0;
 	void Save();
+	void GradientCheck();
+	void SetFilter(uint idx, dlFilter& flt);
 	dlLayer* m_pUpLayer;
 	dlLayer* m_pDownLayer;
 	uint m_layerId;
 	dlLayerType m_type;
 	Vector3i m_inDim;
 	Vector3i m_outDim;
+	Vector3i m_filterDim;
 	MatrixXf m_bias;
 	vector<dlFilter> m_vFilter;
 	vector<MatrixXf> m_vData;
@@ -65,4 +69,13 @@ public:
 	double m_rate;
 private:
 	static uint m_sLayerCnt;
+};
+
+class dlInputLayer : public dlLayer
+{
+public:
+	dlInputLayer(Vector3i outDim);
+	void SetInputData(uint idx, const MatrixXf& mat);
+	virtual void Forward() {}
+	virtual void Backward() {}
 };

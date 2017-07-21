@@ -4,8 +4,7 @@
 
 dlConvLayer::dlConvLayer(dlLayerType type, Vector3i inDim, Vector3i filterDim, uint filterNum,
 	uint zeroPadding, ActivatorType activator, dlLayer * pUpLayer) :
-	dlLayer(type, inDim, Vector3i(0, 0, 0), activator, pUpLayer),
-	m_filterDim(filterDim)
+	dlLayer(type, inDim, filterDim, activator, pUpLayer)
 {
 	DBG_ASSERT(inDim.x() >= filterDim.x() && inDim.y() >= filterDim.y() && inDim.z() == filterDim.z(),
 		"Wrong filter dimension !\n");
@@ -15,11 +14,13 @@ dlConvLayer::dlConvLayer(dlLayerType type, Vector3i inDim, Vector3i filterDim, u
 
 	for (uint i = 0; i < filterNum; i++)
 	{
-		dlFilter newfilter;
-		m_vFilter.push_back(newfilter);
+		dlFilter newfilter;		
 		for (uint j = 0; j < m_filterDim.z(); j++)
-			m_vFilter[i].weights.push_back(MatrixXf::Random(m_filterDim.x(), m_filterDim.y()) * 0.1f);
-
+		{
+			newfilter.weights.push_back(MatrixXf::Random(m_filterDim.x(), m_filterDim.y()) * 0.1f);
+		}		
+		newfilter.bias = 0.1;
+		m_vFilter.push_back(newfilter);
 		m_vData.push_back(MatrixXf::Zero(m_outDim.x(), m_outDim.y()));
 	}
 }
@@ -28,10 +29,12 @@ void dlConvLayer::Forward()
 {
 	for (size_t i = 0; i < m_outDim.z(); i++)
 	{
+		m_vData[i].setZero();
 		for (size_t j = 0; j < m_filterDim.z(); j++)
 		{
 			MatrixXf convMat = Conv(m_pUpLayer->m_vData[j], m_vFilter[i].weights[j]);
 			MatrixXf oneMat = m_vData[i];
+			oneMat.setOnes();
 			m_vData[i] += EleWiseOp(convMat, m_Activator) + m_vFilter[i].bias * oneMat;
 		}
 	}
