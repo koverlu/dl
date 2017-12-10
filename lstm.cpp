@@ -12,11 +12,13 @@ double activ_tanh(double x)
 	return tanh(x);
 }
 
-void VectorMul(const vector<float>& v_src1, 
-			   const vector<float>& v_src2,  
+void VectorMul(vector<float>& v_src1, 
+			   vector<float>& v_src2,  
 			   vector<float>& v_dst, 
-			   uint width, uint src1_offset = 0, uint src2_offset = 0, uint dst_offset = 0)
+			   uint width = 0, uint src1_offset = 0, uint src2_offset = 0, uint dst_offset = 0)
 {
+	if (width == 0)
+		width = v_src1.size();
 	assert(v_src1.size() >= src1_offset + width &&
 		v_src2.size() >= src2_offset + width &&
 		v_dst.size() >= dst_offset + width );
@@ -24,16 +26,31 @@ void VectorMul(const vector<float>& v_src1,
 		v_dst[dst_offset + i] = v_src1[src1_offset + i] * v_src2[src2_offset + i];
 }
 
-void VectorAdd(const vector<float>& v_src1, 
-			   const vector<float>& v_src2,  
+void VectorAdd(vector<float>& v_src1, 
+			   vector<float>& v_src2,  
 			   vector<float>& v_dst, 
-			   uint width, uint src1_offset = 0, uint src2_offset = 0, uint dst_offset = 0)
+			   uint width = 0, uint src1_offset = 0, uint src2_offset = 0, uint dst_offset = 0)
 {
+	if (width == 0)
+		width = v_src1.size();
 	assert(v_src1.size() >= src1_offset + width &&
 		v_src2.size() >= src2_offset + width &&
 		v_dst.size() >= dst_offset + width );
 	for (int i = 0; i < width; i++)
 		v_dst[dst_offset + i] = v_src1[src1_offset + i] + v_src2[src2_offset + i];
+}
+
+//(1 - v)
+void VectorOneSub(vector<float>& v_src,
+	vector<float>& v_dst,
+	uint width = 0, uint src_offset = 0, uint dst_offset = 0)
+{
+	if (width == 0)
+		width = v_src.size();
+	assert(v_src.size() >= src_offset + width &&
+		v_dst.size() >= dst_offset + width);
+	for (int i = 0; i < width; i++)
+		v_dst[dst_offset + i] = 1 - v_src[src_offset + i];
 }
 
 void VectorMM(const vector<float>& v_src1, 
@@ -63,21 +80,41 @@ void VectorActive(vector<float>& v_dst, double(*activator)(double))
 		v_dst[i] = activator(v_dst[i]);
 }
 
-LSTMLayerNetWork::LSTMLayerNetWork(uint inVecLen, uint stateLen, uint batchSize, uint steps, float learnRate) :
+LSTMLayerNetWork::LSTMLayerNetWork(uint inVecLen, uint stateLen, uint batchSize, uint steps, float learnRate, const char* pInput) :
 m_inVecLen(inVecLen),
 m_stateLen(stateLen),
 m_batchSize(batchSize),
 m_steps(steps),
 m_learnRate(learnRate)
 {
-	uint totalStateLen = batchSize * stateLen;
+	uint totalStateLen = m_batchSize * m_stateLen * m_steps;
 	m_states.resize(totalStateLen);
+	m_lstates.resize(totalStateLen);
+	m_lstates0.resize(m_batchSize * m_stateLen);
 	//bf, bi, bc, bo
-	m_bias.resize(stateLen * 4);
+	m_bias.resize(m_stateLen * 4);
 	//Wf, Wi, Wc, Wo
 	m_wtStride = m_stateLen * (m_stateLen + m_inVecLen);
 	m_weights.resize(m_wtStride * 4);
+	m_deltas.resize(totalStateLen);
+	m_ft.resize(totalStateLen);
+	m_it.resize(totalStateLen);
+	m_ct.resize(totalStateLen);
+	m_ot.resize(totalStateLen);
+	m_df.resize(totalStateLen);
+	m_di.resize(totalStateLen);
+	m_dc.resize(totalStateLen);
+	m_do.resize(totalStateLen);
+	if (pInput == NULL)
+		GenerateInputs();
+}
 
+void LSTMLayerNetWork::GenerateInputs()
+{
+	uint total_input_size = m_batchSize * m_steps * m_inVecLen;
+	m_inputs.resize(total_input_size);
+	for (uint i = 0; i < total_input_size; i++)
+		m_inputs[i] = i;
 }
 
 void LSTMLayerNetWork::Forward()
@@ -119,7 +156,7 @@ void LSTMLayerNetWork::Forward()
 			VectorActive(ct, activ_tanh);
 			memcpy(&m_ct[state_offset], &ct[0], m_stateLen * sizeof(float));
 
-			//Output state
+			//Output gate
 			vector<float> ot(m_stateLen);
 			memcpy(&ot[0], &m_bias[m_stateLen * 3], m_stateLen * sizeof(float));
 			VectorMM(m_weights, m_stateLen, m_stateLen, m_wtStride * 3, 
@@ -129,22 +166,87 @@ void LSTMLayerNetWork::Forward()
 			VectorActive(ot, activ_sigmoid);
 			memcpy(&m_ot[state_offset], &ot[0], m_stateLen * sizeof(float));
 
-			//
+			//Long term state
 			vector<float> ftct(m_stateLen);
 			VectorMul(ft, m_lstates, ftct, m_stateLen, 0, state_offset);
 			vector<float> itct(m_stateLen);
 			VectorMul(it, ct, itct, m_stateLen);
-			VectorAdd(ftct, itct, m_lstates, m_stateLen, 0, 0, state_offset);
+			uint offset_sub_one = t == 0 ? (b * m_batchSize * m_inVecLen) : (state_offset - m_inVecLen);
+			VectorAdd(ftct, itct, m_lstates, m_stateLen, 0, 0, offset_sub_one);
 
-			vector<float> tanct(m_stateLen);
-			memcpy(&tanct[0], &m_lstates[state_offset], m_stateLen * sizeof(float));		
-			VectorActive(tanct, activ_tanh);
-			VectorMul(ot, tanct, m_states, m_stateLen, 0, state_offset, state_offset);
+			//Output sate
+			vector<float> tanhct(m_stateLen);
+			memcpy(&tanhct[0], &m_lstates[state_offset], m_stateLen * sizeof(float));		
+			VectorActive(tanhct, activ_tanh);
+			VectorMul(ot, tanhct, m_states, m_stateLen, 0, 0, state_offset);
 		}
 	}		
 }
 
 void LSTMLayerNetWork::BackWard()
+{
+	CalDelta();
+	CalGradient();
+}
+
+void LSTMLayerNetWork::CalDelta()
+{
+	for (uint b = 0; b < m_batchSize; b++)
+	{
+		for (uint t = m_steps - 1; t >= 0; t--)
+		{
+			//
+			uint state_offset = (b * m_batchSize + t) * m_stateLen;
+
+			//tanh(ct)			
+			vector<float> tanhct(m_stateLen);
+			memcpy(&tanhct[0], &m_lstates[state_offset], m_stateLen * sizeof(float));
+			VectorActive(tanhct, activ_tanh);
+
+			//delta_ot
+			vector<float> tmp(m_stateLen);
+			VectorOneSub(m_ot, tmp, m_stateLen, state_offset, 0);
+			vector<float> mul_tmp(m_stateLen);
+			VectorMul(m_deltas, tanhct, mul_tmp, m_stateLen, state_offset, 0, 0);
+			VectorMul(mul_tmp, m_ot, mul_tmp, m_stateLen, 0, state_offset, 0);
+			VectorMul(mul_tmp, tmp, m_do, m_stateLen, 0, 0, state_offset);
+
+			//			
+			VectorMul(tanhct, tanhct, tmp);
+			VectorOneSub(tmp, tmp);
+			VectorMul(m_deltas, m_ot, mul_tmp, m_stateLen, state_offset, state_offset, 0);
+			vector<float> delta_ot_tanh(m_stateLen);
+			VectorMul(mul_tmp, tmp, delta_ot_tanh);
+
+			//delta_ft
+			VectorOneSub(m_ft, tmp, m_stateLen, state_offset, 0);
+			uint offset_sub_one = t == 0 ? (b * m_batchSize * m_inVecLen) : (state_offset - m_inVecLen);
+			VectorMul(delta_ot_tanh, m_lstates, mul_tmp, m_stateLen, 0, offset_sub_one, 0);
+			VectorMul(mul_tmp, m_ft, mul_tmp, m_stateLen, 0, state_offset, 0);
+			VectorMul(mul_tmp, tmp, m_df, m_stateLen, 0, 0, state_offset);
+
+			//delta_it
+			VectorOneSub(m_it, tmp, m_stateLen, state_offset, 0);
+			VectorMul(delta_ot_tanh, m_ct, mul_tmp, m_stateLen, 0, state_offset, 0);
+			VectorMul(mul_tmp, m_it, mul_tmp, m_stateLen, 0, state_offset, 0);
+			VectorMul(mul_tmp, tmp, m_di, m_stateLen, 0, 0, state_offset);
+
+			//delta_ct
+			VectorMul(m_ct, m_ct, tmp, m_stateLen, state_offset, state_offset, 0);
+			VectorOneSub(tmp, tmp);
+			VectorMul(delta_ot_tanh, m_it, mul_tmp, m_stateLen, 0, state_offset, 0);
+			VectorMul(mul_tmp, tmp, m_dc, m_stateLen, 0, 0, state_offset);
+
+			//delta_t-1
+			VectorMM(m_do, 1, m_stateLen, state_offset, m_weights, m_stateLen, m_stateLen, m_wtStride * 3, m_deltas, state_offset - m_inVecLen);
+			VectorMM(m_df, 1, m_stateLen, state_offset, m_weights, m_stateLen, m_stateLen, 0, m_deltas, state_offset - m_inVecLen);
+			VectorMM(m_di, 1, m_stateLen, state_offset, m_weights, m_stateLen, m_stateLen, m_wtStride * 1, m_deltas, state_offset - m_inVecLen);
+			VectorMM(m_dc, 1, m_stateLen, state_offset, m_weights, m_stateLen, m_stateLen, m_wtStride * 2, m_deltas, state_offset - m_inVecLen);
+		}
+	}
+}
+
+void LSTMLayerNetWork::CalGradient()
 {
 
 }
