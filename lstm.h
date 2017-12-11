@@ -13,10 +13,12 @@ public:
 	uint m_wtStride;
 	float m_learnRate;
 	vector<float> m_states;
+	vector<float> m_states0;	//t = -1
 	vector<float> m_lstates;
-	vector<float> m_lstates0;
+	vector<float> m_lstates0;	//t = -1
 	vector<float> m_inputs;
 	vector<float> m_weights;
+	vector<float> m_wei_grad;
 	vector<float> m_bias;
 	vector<float> m_deltas;
 	vector<float> m_ft;
@@ -27,6 +29,7 @@ public:
 	vector<float> m_di;
 	vector<float> m_dc;
 	vector<float> m_do;
+	void ResetStates();
 	void GenerateInputs();
 	void LoadInputsFromFile(const char* path);
 	void DumpInputs();
@@ -34,4 +37,5 @@ public:
 	void BackWard();
 	void CalDelta();
 	void CalGradient();
+	void GradientCheck();
 };

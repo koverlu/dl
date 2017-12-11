@@ -1,4 +1,5 @@
 #include "lstm.h"
+#include <stdio.h>
 #include <math.h>
 #include <string>
 #include <assert.h>
@@ -10,6 +11,15 @@ double activ_sigmoid(double x)
 double activ_tanh(double x)
 {
 	return tanh(x);
+}
+
+float VectorSum(const vector<float>& v_src, uint width = 0, uint offset = 0)
+{
+	assert(v_src.size() >= width + offset);
+	float sum = 0;
+	for (int i = offset; i < offset + width; i++)
+		sum += v_src[i];
+	return sum;
 }
 
 void VectorMul(vector<float>& v_src1, 
@@ -87,24 +97,13 @@ m_batchSize(batchSize),
 m_steps(steps),
 m_learnRate(learnRate)
 {
-	uint totalStateLen = m_batchSize * m_stateLen * m_steps;
-	m_states.resize(totalStateLen);
-	m_lstates.resize(totalStateLen);
-	m_lstates0.resize(m_batchSize * m_stateLen);
-	//bf, bi, bc, bo
-	m_bias.resize(m_stateLen * 4);
-	//Wf, Wi, Wc, Wo
 	m_wtStride = m_stateLen * (m_stateLen + m_inVecLen);
-	m_weights.resize(m_wtStride * 4);
-	m_deltas.resize(totalStateLen);
-	m_ft.resize(totalStateLen);
-	m_it.resize(totalStateLen);
-	m_ct.resize(totalStateLen);
-	m_ot.resize(totalStateLen);
-	m_df.resize(totalStateLen);
-	m_di.resize(totalStateLen);
-	m_dc.resize(totalStateLen);
-	m_do.resize(totalStateLen);
+	//bf, bi, bc, bo
+	m_bias.resize(m_stateLen * 4, 0);
+	//Wf, Wi, Wc, Wo
+	m_weights.resize(m_wtStride * 4, 0);
+	m_wei_grad.resize(m_wtStride * 4, 0);
+	ResetStates();
 	if (pInput == NULL)
 		GenerateInputs();
 }
@@ -126,11 +125,13 @@ void LSTMLayerNetWork::Forward()
 		{
 			uint input_offset = (b * m_batchSize + t) * m_inVecLen;
 			uint state_offset = (b * m_batchSize + t) * m_stateLen;
+			uint offset_sub_one = t == 0 ? (b * m_batchSize * m_inVecLen) : (state_offset - m_inVecLen);
+			vector<float>& states = t == 0 ? m_states0 : m_states;
 			//Forget gate
 			vector<float> ft(m_stateLen);
 			memcpy(&ft[0], &m_bias[0], m_stateLen * sizeof(float));
 			VectorMM(m_weights, m_stateLen, m_stateLen, 0, 
-				m_states, m_stateLen, 1, 0, ft, 0);
+				states, m_stateLen, 1, offset_sub_one, ft, 0);
 			VectorMM(m_weights, m_stateLen, m_inVecLen, wtxoff,
 				m_inputs, m_inVecLen, 1, input_offset, ft, 0);
 			VectorActive(ft, activ_sigmoid);
@@ -140,7 +141,7 @@ void LSTMLayerNetWork::Forward()
 			vector<float> it(m_stateLen);
 			memcpy(&it[0], &m_bias[m_stateLen], m_stateLen * sizeof(float));
 			VectorMM(m_weights, m_stateLen, m_stateLen, m_wtStride, 
-				m_states, m_stateLen, 1, 0, it, 0);
+				states, m_stateLen, 1, offset_sub_one, it, 0);
 			VectorMM(m_weights, m_stateLen, m_inVecLen, m_wtStride + wtxoff,
 				m_inputs, m_inVecLen, 1, input_offset, it, 0);
 			VectorActive(it, activ_sigmoid);
@@ -150,7 +151,7 @@ void LSTMLayerNetWork::Forward()
 			vector<float> ct(m_stateLen);
 			memcpy(&ct[0], &m_bias[m_stateLen * 2], m_stateLen * sizeof(float));
 			VectorMM(m_weights, m_stateLen, m_stateLen, m_wtStride * 2, 
-				m_states, m_stateLen, 1, 0, ct, 0);
+				states, m_stateLen, 1, offset_sub_one, ct, 0);
 			VectorMM(m_weights, m_stateLen, m_inVecLen, m_wtStride * 2 + wtxoff,
 				m_inputs, m_inVecLen, 1, input_offset, ct, 0);
 			VectorActive(ct, activ_tanh);
@@ -160,7 +161,7 @@ void LSTMLayerNetWork::Forward()
 			vector<float> ot(m_stateLen);
 			memcpy(&ot[0], &m_bias[m_stateLen * 3], m_stateLen * sizeof(float));
 			VectorMM(m_weights, m_stateLen, m_stateLen, m_wtStride * 3, 
-				m_states, m_stateLen, 1, 0, ot, 0);
+				states, m_stateLen, 1, offset_sub_one, ot, 0);
 			VectorMM(m_weights, m_stateLen, m_inVecLen, m_wtStride * 3 + wtxoff,
 				m_inputs, m_inVecLen, 1, input_offset, ot, 0);
 			VectorActive(ot, activ_sigmoid);
@@ -171,8 +172,8 @@ void LSTMLayerNetWork::Forward()
 			VectorMul(ft, m_lstates, ftct, m_stateLen, 0, state_offset);
 			vector<float> itct(m_stateLen);
 			VectorMul(it, ct, itct, m_stateLen);
-			uint offset_sub_one = t == 0 ? (b * m_batchSize * m_inVecLen) : (state_offset - m_inVecLen);
-			VectorAdd(ftct, itct, m_lstates, m_stateLen, 0, 0, offset_sub_one);
+			vector<float>& lstates = t == 0 ? m_lstates0 : m_lstates;
+			VectorAdd(ftct, itct, lstates, m_stateLen, 0, 0, offset_sub_one);
 
 			//Output sate
 			vector<float> tanhct(m_stateLen);
@@ -193,7 +194,7 @@ void LSTMLayerNetWork::CalDelta()
 {
 	for (uint b = 0; b < m_batchSize; b++)
 	{
-		for (uint t = m_steps - 1; t >= 0; t--)
+		for (int t = m_steps - 1; t >= 0; t--)
 		{
 			//
 			uint state_offset = (b * m_batchSize + t) * m_stateLen;
@@ -238,15 +239,95 @@ void LSTMLayerNetWork::CalDelta()
 			VectorMul(mul_tmp, tmp, m_dc, m_stateLen, 0, 0, state_offset);
 
 			//delta_t-1
-			VectorMM(m_do, 1, m_stateLen, state_offset, m_weights, m_stateLen, m_stateLen, m_wtStride * 3, m_deltas, state_offset - m_inVecLen);
-			VectorMM(m_df, 1, m_stateLen, state_offset, m_weights, m_stateLen, m_stateLen, 0, m_deltas, state_offset - m_inVecLen);
-			VectorMM(m_di, 1, m_stateLen, state_offset, m_weights, m_stateLen, m_stateLen, m_wtStride * 1, m_deltas, state_offset - m_inVecLen);
-			VectorMM(m_dc, 1, m_stateLen, state_offset, m_weights, m_stateLen, m_stateLen, m_wtStride * 2, m_deltas, state_offset - m_inVecLen);
+			if(t > 0)
+			{
+				VectorMM(m_do, 1, m_stateLen, state_offset, m_weights, m_stateLen, m_stateLen, m_wtStride * 3, m_deltas, state_offset - m_inVecLen);
+				VectorMM(m_df, 1, m_stateLen, state_offset, m_weights, m_stateLen, m_stateLen, 0, m_deltas, state_offset - m_inVecLen);
+				VectorMM(m_di, 1, m_stateLen, state_offset, m_weights, m_stateLen, m_stateLen, m_wtStride * 1, m_deltas, state_offset - m_inVecLen);
+				VectorMM(m_dc, 1, m_stateLen, state_offset, m_weights, m_stateLen, m_stateLen, m_wtStride * 2, m_deltas, state_offset - m_inVecLen);
+
+			}
 		}
 	}
 }
 
 void LSTMLayerNetWork::CalGradient()
 {
+	vector<float> avg_factor(m_wtStride * 4, -m_learnRate / m_batchSize);
+	vector<float> sum_wei_grad(m_wtStride * 4, 0);
+	vector<float> sum_bias_grad(m_stateLen * 4, 0);
+	for (uint b = 0; b < m_batchSize; b++)
+	{
+		for (uint t = 0; t < m_steps; t++)
+		{
+			uint state_offset = (b * m_batchSize + t) * m_stateLen;
+			//
+			VectorMM(m_do, m_stateLen, 1, state_offset, m_states, 1, m_stateLen, state_offset, sum_wei_grad, m_wtStride * 3);
+			VectorMM(m_df, m_stateLen, 1, state_offset, m_states, 1, m_stateLen, state_offset, sum_wei_grad, 0);
+			VectorMM(m_di, m_stateLen, 1, state_offset, m_states, 1, m_stateLen, state_offset, sum_wei_grad, m_wtStride * 1);
+			VectorMM(m_dc, m_stateLen, 1, state_offset, m_states, 1, m_stateLen, state_offset, sum_wei_grad, m_wtStride * 2);
+			//
+			VectorAdd(m_do, sum_bias_grad, sum_bias_grad, m_stateLen, 0, m_stateLen * 3, m_stateLen * 3);
+			VectorAdd(m_df, sum_bias_grad, sum_bias_grad, m_stateLen, 0, 0, 0);
+			VectorAdd(m_di, sum_bias_grad, sum_bias_grad, m_stateLen, 0, m_stateLen * 1, m_stateLen * 1);
+			VectorAdd(m_dc, sum_bias_grad, sum_bias_grad, m_stateLen, 0, m_stateLen * 2, m_stateLen * 2);
+		}
+		//Calculate 
+		uint last_offset = (b * m_batchSize + m_steps - 1)  * m_stateLen;
+		uint input_offset = (b * m_batchSize + m_steps - 1) * m_inVecLen;
+		uint wtxoff = m_stateLen * m_stateLen;
+		VectorMM(m_do, m_stateLen, 1, last_offset, m_inputs, 1, m_inVecLen, input_offset, sum_wei_grad, m_wtStride * 3 + wtxoff);
+		VectorMM(m_df, m_stateLen, 1, last_offset, m_inputs, 1, m_inVecLen, input_offset, sum_wei_grad, wtxoff);
+		VectorMM(m_di, m_stateLen, 1, last_offset, m_inputs, 1, m_inVecLen, input_offset, sum_wei_grad, m_wtStride * 1 + wtxoff);
+		VectorMM(m_dc, m_stateLen, 1, last_offset, m_inputs, 1, m_inVecLen, input_offset, sum_wei_grad, m_wtStride * 2 + wtxoff);
+	}
+	//
+	m_wei_grad = sum_wei_grad;
+	VectorMul(sum_wei_grad, avg_factor, sum_wei_grad);
+	VectorAdd(m_weights, sum_wei_grad, m_weights);
+	//
+	VectorMul(sum_bias_grad, avg_factor, sum_bias_grad);
+	VectorAdd(m_bias, sum_bias_grad, m_bias);
+}
 
+void LSTMLayerNetWork::GradientCheck()
+{
+	//batchSize = 1
+	float epsilon = 0.0001;
+	uint last_state_offset = (m_steps - 1) * m_stateLen;
+	for (uint i = 0; i < m_stateLen; i++)
+	{
+		for (uint j = 0; j < m_stateLen + m_inVecLen; j++)
+		{
+			ResetStates();
+			m_weights[i * (m_stateLen + m_inVecLen) + j] += epsilon;
+			Forward();
+			float err1 = VectorSum(m_states, m_stateLen, last_state_offset);
+			ResetStates();
+			m_weights[i * (m_stateLen + m_inVecLen) + j] -= 2 * epsilon;
+			Forward();
+			float err2 = VectorSum(m_states, m_stateLen, last_state_offset);
+			float expect_grad = (err1 - err2) / (2 * epsilon);
+			m_weights[i * (m_stateLen + m_inVecLen) + j] += epsilon;
+			printf("weights(%d,%d): expected - actural %.4e - %.4e\n", i, j, expect_grad, m_wei_grad[i * (m_stateLen + m_inVecLen) + j]);
+		}
+	}
+}
+
+void LSTMLayerNetWork::ResetStates()
+{
+	uint totalStateLen = m_batchSize * m_stateLen * m_steps;
+	m_states.resize(totalStateLen, 0);
+	m_states0.resize(m_batchSize * m_stateLen, 0);
+	m_lstates.resize(totalStateLen, 0);
+	m_lstates0.resize(m_batchSize * m_stateLen, 0);
+	m_deltas.resize(totalStateLen, 0);
+	m_ft.resize(totalStateLen, 0);
+	m_it.resize(totalStateLen, 0);
+	m_ct.resize(totalStateLen, 0);
+	m_ot.resize(totalStateLen, 0);
+	m_df.resize(totalStateLen, 0);
+	m_di.resize(totalStateLen, 0);
+	m_dc.resize(totalStateLen, 0);
+	m_do.resize(totalStateLen, 0);
 }
