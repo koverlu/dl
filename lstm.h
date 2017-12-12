@@ -5,30 +5,30 @@ typedef unsigned int uint;
 class LSTMLayerNetWork
 {
 public:
-	LSTMLayerNetWork(uint inVecLen, uint stateLen, uint batchSize, uint steps, float learnRate, const char* pInput = NULL);
+	LSTMLayerNetWork(uint inVecLen, uint stateLen, uint batchSize, uint steps, double learnRate, const char* pInput = NULL);
 	uint m_inVecLen;
 	uint m_stateLen;
 	uint m_batchSize;
 	uint m_steps;
 	uint m_wtStride;
-	float m_learnRate;
-	vector<float> m_states;
-	vector<float> m_states0;	//t = -1
-	vector<float> m_lstates;
-	vector<float> m_lstates0;	//t = -1
-	vector<float> m_inputs;
-	vector<float> m_weights;
-	vector<float> m_wei_grad;
-	vector<float> m_bias;
-	vector<float> m_deltas;
-	vector<float> m_ft;
-	vector<float> m_it;
-	vector<float> m_ct;
-	vector<float> m_ot;
-	vector<float> m_df;
-	vector<float> m_di;
-	vector<float> m_dc;
-	vector<float> m_do;
+	double m_learnRate;
+	vector<double> m_states;
+	vector<double> m_states0;	//t = -1
+	vector<double> m_lstates;
+	vector<double> m_lstates0;	//t = -1
+	vector<double> m_inputs;
+	vector<double> m_weights;
+	vector<double> m_wei_grad;
+	vector<double> m_bias;
+	vector<double> m_deltas;
+	vector<double> m_ft;
+	vector<double> m_it;
+	vector<double> m_ct;
+	vector<double> m_ot;
+	vector<double> m_df;
+	vector<double> m_di;
+	vector<double> m_dc;
+	vector<double> m_do;
 	void ResetStates();
 	void GenerateInputs();
 	void LoadInputsFromFile(const char* path);
@@ -38,4 +38,5 @@ public:
 	void CalDelta();
 	void CalGradient();
 	void GradientCheck();
+	void InitWeight();
 };
