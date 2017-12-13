@@ -1,106 +1,7 @@
 #include "lstm.h"
-#include <cstdlib>
-#include <stdio.h>
-#include <math.h>
-#include <string>
-#include <assert.h>
-double activ_sigmoid(double x)
-{
-	return (1 / (1 + exp(-x)));
-}
+#include "common.h"
 
-double activ_tanh(double x)
-{
-	//double k = 2.0 / (1.0 + exp(-2 * x)) - 1.0;
-	//double m =  tanh(x);
-	return tanh(x);
-}
-
-double VectorSum(const vector<double>& v_src, uint width = 0, uint offset = 0)
-{
-	assert(v_src.size() >= width + offset);
-	double sum = 0;
-	for (int i = offset; i < offset + width; i++)
-		sum += v_src[i];
-	return sum;
-}
-
-void VectorMul(vector<double>& v_src1, 
-			   vector<double>& v_src2,  
-			   vector<double>& v_dst, 
-			   uint width = 0, uint src1_offset = 0, uint src2_offset = 0, uint dst_offset = 0)
-{
-	if (width == 0)
-		width = v_src1.size();
-	assert(v_src1.size() >= src1_offset + width &&
-		v_src2.size() >= src2_offset + width &&
-		v_dst.size() >= dst_offset + width );
-	for (int i = 0; i < width; i++)
-		v_dst[dst_offset + i] = v_src1[src1_offset + i] * v_src2[src2_offset + i];
-}
-
-void VectorAdd(vector<double>& v_src1, 
-			   vector<double>& v_src2,  
-			   vector<double>& v_dst, 
-			   uint width = 0, uint src1_offset = 0, uint src2_offset = 0, uint dst_offset = 0)
-{
-	if (width == 0)
-		width = v_src1.size();
-	assert(v_src1.size() >= src1_offset + width &&
-		v_src2.size() >= src2_offset + width &&
-		v_dst.size() >= dst_offset + width );
-	for (int i = 0; i < width; i++)
-		v_dst[dst_offset + i] = v_src1[src1_offset + i] + v_src2[src2_offset + i];
-}
-
-inline void VectorResizeZero(vector<double>& v_dst, uint size)
-{
-	v_dst.resize(size);
-	memset(&v_dst[0], 0, size * sizeof(double));
-}
-
-//(1 - v)
-void VectorOneSub(vector<double>& v_src,
-	vector<double>& v_dst,
-	uint width = 0, uint src_offset = 0, uint dst_offset = 0)
-{
-	if (width == 0)
-		width = v_src.size();
-	assert(v_src.size() >= src_offset + width &&
-		v_dst.size() >= dst_offset + width);
-	for (int i = 0; i < width; i++)
-		v_dst[dst_offset + i] = 1 - v_src[src_offset + i];
-}
-
-void VectorMM(const vector<double>& v_src1, 
-			  uint src1_rows,
-			  uint src1_cols,
-			  uint src1_offset,
-			  const vector<double>& v_src2, 
-			  uint src2_rows,
-			  uint src2_cols,
-			  uint src2_offset,
-			  vector<double>& v_dst,
-			  uint dst_offset)
-{
-	assert(src1_cols == src2_rows && 
-		v_src1.size() >= (src1_offset + src1_rows * src1_cols) &&
-		v_src2.size() >= (src2_offset + src2_rows * src2_cols) &&
-		v_dst.size() >= (dst_offset + src1_rows * src2_cols));
-	for(uint m = 0; m < src1_rows; m++)
-		for (uint n = 0; n < src2_cols; n++)
-			for (uint k = 0; k < src1_cols; k++)
-				v_dst[dst_offset + m * src2_cols + n] += v_src1[src1_offset + m * src1_cols + k] * v_src2[src2_offset + k * src2_cols + n];
-}
-
-void VectorActive(vector<double>& v_dst, double(*activator)(double))
-{
-	for (uint i = 0; i < v_dst.size(); i++ )
-		v_dst[i] = activator(v_dst[i]);
-}
-
-
-LSTMLayerNetWork::LSTMLayerNetWork(uint inVecLen, uint stateLen, uint batchSize, uint steps, double learnRate, const char* pInput) :
+LSTMLayer::LSTMLayer(uint inVecLen, uint stateLen, uint batchSize, uint steps, double learnRate, const char* pInput) :
 m_inVecLen(inVecLen),
 m_stateLen(stateLen),
 m_batchSize(batchSize),
@@ -115,21 +16,16 @@ m_learnRate(learnRate)
 		GenerateInputs();
 }
 
-void LSTMLayerNetWork::GenerateInputs()
+void LSTMLayer::GenerateInputs()
 {
 	uint total_input_size = m_batchSize * m_steps * m_inVecLen;
 	m_inputs.resize(total_input_size);
-	//m_inputs[0] = 1;
-	//m_inputs[1] = 2;
-	//m_inputs[2] = 3;
-	//m_inputs[3] = 2;
-	//m_inputs[4] = 3;
-	//m_inputs[5] = 4;
 	for (uint i = 0; i < total_input_size; i++)
+		//m_inputs[i] = i+ 1;
 		m_inputs[i] = rand() % 10;
 }
 
-void LSTMLayerNetWork::Forward()
+void LSTMLayer::Forward()
 {
 	uint wtxoff = m_stateLen * m_stateLen;
 	for(uint b =0; b < m_batchSize; b++)
@@ -197,13 +93,13 @@ void LSTMLayerNetWork::Forward()
 	}		
 }
 
-void LSTMLayerNetWork::BackWard()
+void LSTMLayer::BackWard()
 {
 	CalDelta();
 	CalGradient();
 }
 
-void LSTMLayerNetWork::CalDelta()
+void LSTMLayer::CalDelta()
 {
 	for (uint b = 0; b < m_batchSize; b++)
 	{
@@ -269,7 +165,7 @@ void LSTMLayerNetWork::CalDelta()
 	}
 }
 
-void LSTMLayerNetWork::CalGradient()
+void LSTMLayer::CalGradient()
 {
 	vector<double> avg_factor(m_wtStride * 4, -m_learnRate / m_batchSize);
 	vector<double> sum_wei_grad(m_wtStride * 4, 0);
@@ -302,23 +198,18 @@ void LSTMLayerNetWork::CalGradient()
 	}
 	//
 	m_wei_grad = sum_wei_grad;
-	//VectorMul(sum_wei_grad, avg_factor, sum_wei_grad);
-	//VectorAdd(m_weights, sum_wei_grad, m_weights);
-	//
-	//VectorMul(sum_bias_grad, avg_factor, sum_bias_grad);
-	//VectorAdd(m_bias, sum_bias_grad, m_bias);
+	m_bias_grad = sum_bias_grad;
 }
 
-void LSTMLayerNetWork::GradientCheck()
+void LSTMLayer::GradientCheck()
 {
-	//batchSize = 1, target = {0}
+	//batchSize = 1
 	double epsilon = 0.0001;
 	uint last_state_offset = (m_steps - 1) * m_stateLen;
 	Forward();
 	for (uint i = 0; i < m_stateLen; i++)
-		m_deltas[last_state_offset + i] = 1.0;
-		//m_deltas[last_state_offset + i] =  m_states[last_state_offset + i];
-		//m_deltas[i + (m_steps - 1) * m_stateLen] =  (2 * rand() / (double)(RAND_MAX)) - 1.0;
+		//m_deltas[last_state_offset + i] = 1.0;
+		m_deltas[last_state_offset + i] =  m_states[last_state_offset + i];
 	BackWard();
 	
 	for (uint i = 0; i < m_stateLen; i++)
@@ -331,14 +222,14 @@ void LSTMLayerNetWork::GradientCheck()
 			//tmp = ht * ht
 			vector<double> tmp(m_stateLen);
 			VectorMul(m_states, m_states, tmp, m_stateLen, last_state_offset, last_state_offset, 0);
-			//double err1 = VectorSum(tmp, m_stateLen, 0) / 2.0;
-			double err1 = VectorSum(m_states, m_stateLen, last_state_offset);
+			double err1 = VectorSum(tmp, m_stateLen, 0) / 2.0;
+			//double err1 = VectorSum(m_states, m_stateLen, last_state_offset);
 			ResetStates();
 			m_weights[i * (m_stateLen + m_inVecLen) + j] -= 2 * epsilon;
 			Forward();
 			VectorMul(m_states, m_states, tmp, m_stateLen, last_state_offset, last_state_offset, 0);
-			double err2 = VectorSum(m_states, m_stateLen, last_state_offset);
-			//double err2 = VectorSum(tmp, m_stateLen, 0) / 2.0;
+			double err2 = VectorSum(tmp, m_stateLen, 0) / 2.0;
+			//double err2 = VectorSum(m_states, m_stateLen, last_state_offset);
 			double expect_grad = (err1 - err2) / (2 * epsilon);
 			m_weights[i * (m_stateLen + m_inVecLen) + j] += epsilon;
 			printf("weights(%d,%d): expected - actural %.4e - %.4e\n", i, j, expect_grad, m_wei_grad[i * (m_stateLen + m_inVecLen) + j]);
@@ -346,7 +237,7 @@ void LSTMLayerNetWork::GradientCheck()
 	}
 }
 
-void LSTMLayerNetWork::ResetStates()
+void LSTMLayer::ResetStates()
 {
 	uint totalStateLen = m_batchSize * m_stateLen * m_steps;
 	VectorResizeZero(m_states, totalStateLen);
@@ -377,13 +268,29 @@ void LSTMLayerNetWork::ResetStates()
 	//m_do.resize(totalStateLen, 0);
 }
 
-void LSTMLayerNetWork::InitWeight()
+void LSTMLayer::InitWeight()
 {
 	//bf, bi, bc, bo
-	m_bias.resize(m_stateLen * 4, 0);
+	VectorResizeZero(m_bias, m_stateLen * 4);
 	srand(1);
 	//Wf, Wi, Wc, Wo
 	m_weights.resize(m_wtStride * 4);
 	for (uint i = 0; i < m_weights.size(); i++)
+		//m_weights[i] = 1.0/10000.0;
 		m_weights[i] = ((2 * rand() / (double)(RAND_MAX)) - 1.0)/10000.0;
+}
+
+void LSTMLayer::UpdateWeights()
+{
+	vector<double> avg_factor(m_stateLen * m_inVecLen, -m_learnRate / m_batchSize);
+	VectorMul(m_wei_grad, avg_factor, m_wei_grad);
+	VectorAdd(m_weights, m_wei_grad, m_weights);
+
+	VectorMul(m_bias_grad, avg_factor, m_bias_grad);
+	VectorAdd(m_bias, m_bias_grad, m_bias);
+}
+
+void LSTMLayer::SetConnection(vector<double>* pInputs, vector<double>* pDeltas)
+{
+	
 }

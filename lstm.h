@@ -1,11 +1,9 @@
-#include <vector>
-using namespace std;
-typedef unsigned int uint;
+#include "dlDef.h"
 
-class LSTMLayerNetWork
+class LSTMLayer
 {
 public:
-	LSTMLayerNetWork(uint inVecLen, uint stateLen, uint batchSize, uint steps, double learnRate, const char* pInput = NULL);
+	LSTMLayer(uint inVecLen, uint stateLen, uint batchSize, uint steps, double learnRate, const char* pInput = NULL);
 	uint m_inVecLen;
 	uint m_stateLen;
 	uint m_batchSize;
@@ -19,6 +17,7 @@ public:
 	vector<double> m_inputs;
 	vector<double> m_weights;
 	vector<double> m_wei_grad;
+	vector<double> m_bias_grad;
 	vector<double> m_bias;
 	vector<double> m_deltas;
 	vector<double> m_ft;
@@ -37,6 +36,8 @@ public:
 	void BackWard();
 	void CalDelta();
 	void CalGradient();
+	void UpdateWeights();
 	void GradientCheck();
 	void InitWeight();
+	void SetConnection(vector<double>* pInputs, vector<double>* pDeltas);
 };

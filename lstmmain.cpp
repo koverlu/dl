@@ -1,9 +1,12 @@
 #include "lstm.h"
+#include "fc.h"
 
-void main()
+void lstmmain()
 {
-	LSTMLayerNetWork* pLSTM = new LSTMLayerNetWork(3, 2, 1, 2, 0.001);
-	pLSTM->GradientCheck();
+	//LSTMLayer* pLSTM = new LSTMLayer(28, 128, 1, 2, 0.001);
+	//pLSTM->GradientCheck();
 	//pLSTM->Forward();
 	//pLSTM->BackWard();
+	FCLayer* pFC = new FCLayer(128, 10, 1, 0.001);
+	pFC->GradientCheck();
 }
