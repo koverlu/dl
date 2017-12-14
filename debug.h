@@ -1,7 +1,9 @@
 #pragma once
-#ifdef WIN_OS
+#ifdef _WINDOWS
 #include <windows.h>
 #else
+#include <string.h>
+#include <stdio.h>
 #include <time.h>
 #define sprintf_s snprintf
 #define _vsnprintf vsnprintf 

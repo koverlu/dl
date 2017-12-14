@@ -153,6 +153,9 @@ void dlNetwork::Train()
 	}
 	m_trainInfo.trainTimes++;
 	m_epoch.times++;
+	if (m_epoch.times % 1000 == 0)
+		DBG_PRINT("Epoch %d: %d%/%d, %f", m_epochVector.size(), m_epoch.faults, m_epoch.times, m_epoch.faults / m_epoch.times);
+		
 }
 
 void dlNetwork::Test()

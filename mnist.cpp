@@ -92,6 +92,7 @@ void train()
 				//	at[5], outputM(5, 0), at[6], outputM(6, 0), at[7], outputM(7, 0), at[8], outputM(8, 0), at[9], outputM(9, 0));
 			}
 		}
+		mnist.EpochStatistics();
 		if (epoch % 10 == 0)
 		{
 			errorRate = 0;
