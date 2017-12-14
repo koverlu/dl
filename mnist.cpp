@@ -1,6 +1,7 @@
 #include "dlDef.h"
 #include "lstm.h"
 #include "fc.h"
+#include "network.h"
 #include <fstream>
 #include <iostream>
 #include "debug.h"
@@ -57,10 +58,14 @@ void train()
 	imgFile.read((char*)inputImg, row * col * times);
 	imgFile.close();
 
-
+	dlNetwork mnist("mnist");
+	//Create Network, LSTM + FC
+	mnist.Init();
+	//Create Input Buffer and Target Buffer
 	vector<double> inputData(row * col);
 	vector<double> targetData(10);
-	char at[10];
+	mnist.SetInputsAndTargets(&inputData, &targetData);
+
 	uint CPUTIME_START = GetTickCount();
 	uint epoch = 0;
 	double errorRate = 0;
@@ -75,7 +80,8 @@ void train()
 			}
 			memset(&targetData[0], 0, 10 * sizeof(double));
 			targetData[input[i]] = 1;
-
+			
+			mnist.Train();
 			if (i % 100 == 0)
 			{
 				//memset(at, ' ', 10);
@@ -89,6 +95,7 @@ void train()
 		if (epoch % 10 == 0)
 		{
 			errorRate = 0;
+			errorRate = mnist.GetLastErrorRate(10);
 			if (errorRate > lastErrorRate)
 				break;
 			else
@@ -137,7 +144,7 @@ void test()
 		}
 	}
 
-	//printf("%f\n", mnist.EpochStatistics());
+	DBG_PRINT("%f\n", 1.0);
 	delete[] input;
 	delete[] inputImg;
 }

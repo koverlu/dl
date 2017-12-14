@@ -33,3 +33,4 @@ extern void VectorMM(const vector<double>& v_src1,
 			  uint dst_offset);
 extern void VectorActive(vector<double>& v_dst, double(*activator)(double));
 extern void VectorSoftmax(vector<double>& v_dst, uint len = 0, uint offset = 0);
+extern uint VectorMaxIdx(const vector<double>& v_src, uint len = 0, uint offset = 0);

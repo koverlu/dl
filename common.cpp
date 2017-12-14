@@ -95,7 +95,7 @@ void VectorActive(vector<double>& v_dst, double(*activator)(double))
 		v_dst[i] = activator(v_dst[i]);
 }
 
-void VectorSoftmax(vector<double>& v_dst, uint len = 0, uint offset = 0)
+void VectorSoftmax(vector<double>& v_dst, uint len /*= 0*/, uint offset /*= 0*/)
 {
 	if (len == 0)
 		len = v_dst.size();
@@ -110,4 +110,21 @@ void VectorSoftmax(vector<double>& v_dst, uint len = 0, uint offset = 0)
 	{
 		v_dst[offset + i] = exp_value[i] / sum;
 	}
+}
+
+uint VectorMaxIdx(const vector<double>& v_src, uint len /*= 0*/, uint offset /*= 0*/)
+{
+	double max_value = -1.0;
+	uint max_idx = 0;
+	if (len == 0)
+		len = v_src.size();
+	for (uint i = 0; i < len; i++)
+	{
+		if (v_src[offset + i] >= max_value)
+		{
+			max_value = v_src[offset + i];
+			max_idx = i;
+		}
+	}
+	return max_idx;
 }

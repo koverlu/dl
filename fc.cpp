@@ -6,16 +6,27 @@ FCLayer::FCLayer(uint inVecLen, uint stateLen, uint batchSize, double learnRate,
 m_inVecLen(inVecLen),
 m_stateLen(stateLen),
 m_batchSize(batchSize),
-m_learnRate(learnRate)
+m_learnRate(learnRate),
+m_bGenInputs(false)
 {
 	m_totalStateLen = m_batchSize * m_stateLen;
 	VectorResizeZero(m_deltas, m_totalStateLen);
 	VectorResizeZero(m_states, m_totalStateLen);
 	InitWeight();
-	m_pInputs = new vector<double>;
-	VectorResizeZero(*m_pInputs, m_inVecLen * m_batchSize);
-	for (uint i = 0; i < m_inVecLen * m_batchSize; i++)
-		(*m_pInputs)[i] = i;
+	//m_pInputs = new vector<double>;
+	//VectorResizeZero(*m_pInputs, m_inVecLen * m_batchSize);
+	//for (uint i = 0; i < m_inVecLen * m_batchSize; i++)
+	//	(*m_pInputs)[i] = i;
+}
+
+
+FCLayer::~FCLayer()
+{
+	if (m_bGenInputs && m_pInputs)
+	{
+		(*m_pInputs).clear();
+		delete m_pInputs;
+	}
 }
 
 void FCLayer::InitWeight()
@@ -43,6 +54,7 @@ void FCLayer::BackWard()
 {
 	CalDelta();
 	CalGradient();
+	UpdateWeights();
 }
 
 void FCLayer::CalDelta()

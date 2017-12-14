@@ -6,27 +6,42 @@ m_inVecLen(inVecLen),
 m_stateLen(stateLen),
 m_batchSize(batchSize),
 m_steps(steps),
-m_learnRate(learnRate)
+m_learnRate(learnRate),
+m_pInputs(NULL),
+m_bGenInputs(false)
 {
 	m_wtStride = m_stateLen * (m_stateLen + m_inVecLen);
 	InitWeight();
 	m_wei_grad.resize(m_wtStride * 4, 0);
 	ResetStates();
-	if (pInput == NULL)
-		GenerateInputs();
+	//if (pInput == NULL)
+	//	GenerateInputs();
 }
+
+LSTMLayer::~LSTMLayer()
+{
+	if (m_bGenInputs && m_pInputs)
+	{
+		(*m_pInputs).clear();
+		delete m_pInputs;
+	}
+}
+
 
 void LSTMLayer::GenerateInputs()
 {
 	uint total_input_size = m_batchSize * m_steps * m_inVecLen;
-	m_inputs.resize(total_input_size);
+	m_pInputs = new vector<double>;
+	(*m_pInputs).resize(total_input_size);
 	for (uint i = 0; i < total_input_size; i++)
-		//m_inputs[i] = i+ 1;
-		m_inputs[i] = rand() % 10;
+		//(*m_pInputs)[i] = i+ 1;
+		(*m_pInputs)[i] = rand() % 10;
+	m_bGenInputs = true;
 }
 
 void LSTMLayer::Forward()
 {
+	ResetStates();
 	uint wtxoff = m_stateLen * m_stateLen;
 	for(uint b =0; b < m_batchSize; b++)
 	{
@@ -42,7 +57,7 @@ void LSTMLayer::Forward()
 			VectorMM(m_weights, m_stateLen, m_stateLen, 0, 
 				states, m_stateLen, 1, offset_sub_one, ft, 0);
 			VectorMM(m_weights, m_stateLen, m_inVecLen, wtxoff,
-				m_inputs, m_inVecLen, 1, input_offset, ft, 0);
+				(*m_pInputs), m_inVecLen, 1, input_offset, ft, 0);
 			VectorActive(ft, activ_sigmoid);
 			memcpy(&m_ft[state_offset], &ft[0], m_stateLen * sizeof(double));
 
@@ -52,7 +67,7 @@ void LSTMLayer::Forward()
 			VectorMM(m_weights, m_stateLen, m_stateLen, m_wtStride, 
 				states, m_stateLen, 1, offset_sub_one, it, 0);
 			VectorMM(m_weights, m_stateLen, m_inVecLen, m_wtStride + wtxoff,
-				m_inputs, m_inVecLen, 1, input_offset, it, 0);
+				(*m_pInputs), m_inVecLen, 1, input_offset, it, 0);
 			VectorActive(it, activ_sigmoid);
 			memcpy(&m_it[state_offset], &it[0], m_stateLen * sizeof(double));
 
@@ -62,7 +77,7 @@ void LSTMLayer::Forward()
 			VectorMM(m_weights, m_stateLen, m_stateLen, m_wtStride * 2, 
 				states, m_stateLen, 1, offset_sub_one, ct, 0);
 			VectorMM(m_weights, m_stateLen, m_inVecLen, m_wtStride * 2 + wtxoff,
-				m_inputs, m_inVecLen, 1, input_offset, ct, 0);
+				(*m_pInputs), m_inVecLen, 1, input_offset, ct, 0);
 			VectorActive(ct, activ_tanh);
 			memcpy(&m_ct[state_offset], &ct[0], m_stateLen * sizeof(double));
 
@@ -72,7 +87,7 @@ void LSTMLayer::Forward()
 			VectorMM(m_weights, m_stateLen, m_stateLen, m_wtStride * 3, 
 				states, m_stateLen, 1, offset_sub_one, ot, 0);
 			VectorMM(m_weights, m_stateLen, m_inVecLen, m_wtStride * 3 + wtxoff,
-				m_inputs, m_inVecLen, 1, input_offset, ot, 0);
+				(*m_pInputs), m_inVecLen, 1, input_offset, ot, 0);
 			VectorActive(ot, activ_sigmoid);
 			memcpy(&m_ot[state_offset], &ot[0], m_stateLen * sizeof(double));
 
@@ -90,6 +105,7 @@ void LSTMLayer::Forward()
 			VectorActive(tanhct, activ_tanh);
 			VectorMul(ot, tanhct, m_states, m_stateLen, 0, 0, state_offset);
 		}
+		memcpy(&m_output[b * m_stateLen], &m_states[(b * m_batchSize + m_steps - 1) * m_stateLen], m_stateLen * sizeof(double));
 	}		
 }
 
@@ -97,12 +113,15 @@ void LSTMLayer::BackWard()
 {
 	CalDelta();
 	CalGradient();
+	UpdateWeights();
 }
 
 void LSTMLayer::CalDelta()
 {
+	
 	for (uint b = 0; b < m_batchSize; b++)
 	{
+		memcpy(&m_deltas[(b * m_batchSize + m_steps - 1) * m_stateLen], &m_back_deltas[b * m_stateLen], m_stateLen * sizeof(double));
 		for (int t = m_steps - 1; t >= 0; t--)
 		{
 			//
@@ -167,7 +186,6 @@ void LSTMLayer::CalDelta()
 
 void LSTMLayer::CalGradient()
 {
-	vector<double> avg_factor(m_wtStride * 4, -m_learnRate / m_batchSize);
 	vector<double> sum_wei_grad(m_wtStride * 4, 0);
 	vector<double> sum_bias_grad(m_stateLen * 4, 0);
 	for (uint b = 0; b < m_batchSize; b++)
@@ -191,10 +209,10 @@ void LSTMLayer::CalGradient()
 		uint last_offset = (b * m_batchSize + m_steps - 1)  * m_stateLen;
 		uint input_offset = (b * m_batchSize + m_steps - 1) * m_inVecLen;
 		uint wtxoff = m_stateLen * m_stateLen;
-		VectorMM(m_do, m_stateLen, 1, last_offset, m_inputs, 1, m_inVecLen, input_offset, sum_wei_grad, m_wtStride * 3 + wtxoff);
-		VectorMM(m_df, m_stateLen, 1, last_offset, m_inputs, 1, m_inVecLen, input_offset, sum_wei_grad, wtxoff);
-		VectorMM(m_di, m_stateLen, 1, last_offset, m_inputs, 1, m_inVecLen, input_offset, sum_wei_grad, m_wtStride * 1 + wtxoff);
-		VectorMM(m_dc, m_stateLen, 1, last_offset, m_inputs, 1, m_inVecLen, input_offset, sum_wei_grad, m_wtStride * 2 + wtxoff);
+		VectorMM(m_do, m_stateLen, 1, last_offset, (*m_pInputs), 1, m_inVecLen, input_offset, sum_wei_grad, m_wtStride * 3 + wtxoff);
+		VectorMM(m_df, m_stateLen, 1, last_offset, (*m_pInputs), 1, m_inVecLen, input_offset, sum_wei_grad, wtxoff);
+		VectorMM(m_di, m_stateLen, 1, last_offset, (*m_pInputs), 1, m_inVecLen, input_offset, sum_wei_grad, m_wtStride * 1 + wtxoff);
+		VectorMM(m_dc, m_stateLen, 1, last_offset, (*m_pInputs), 1, m_inVecLen, input_offset, sum_wei_grad, m_wtStride * 2 + wtxoff);
 	}
 	//
 	m_wei_grad = sum_wei_grad;
@@ -244,6 +262,7 @@ void LSTMLayer::ResetStates()
 	VectorResizeZero(m_states0, m_batchSize * m_stateLen);
 	VectorResizeZero(m_lstates, totalStateLen);
 	VectorResizeZero(m_lstates0, m_batchSize * m_stateLen);	
+	VectorResizeZero(m_output, m_batchSize * m_stateLen);
 	VectorResizeZero(m_deltas, totalStateLen);
 	VectorResizeZero(m_ft, totalStateLen);
 	VectorResizeZero(m_it, totalStateLen);
@@ -282,7 +301,7 @@ void LSTMLayer::InitWeight()
 
 void LSTMLayer::UpdateWeights()
 {
-	vector<double> avg_factor(m_stateLen * m_inVecLen, -m_learnRate / m_batchSize);
+	vector<double> avg_factor(m_wtStride * 4, -m_learnRate / m_batchSize);
 	VectorMul(m_wei_grad, avg_factor, m_wei_grad);
 	VectorAdd(m_weights, m_wei_grad, m_weights);
 
