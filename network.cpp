@@ -8,6 +8,7 @@
 dlNetwork::dlNetwork(char * name) :
 	m_name(name)
 {
+	m_thousandsFaults = 0;
 }
 
 dlNetwork::~dlNetwork()
@@ -17,10 +18,10 @@ dlNetwork::~dlNetwork()
 
 void dlNetwork::Init()
 {
-	m_pLSTMLayer = new LSTMLayer(28, 128, 1, 28, 0.001);
-	m_pFCLayer = new FCLayer(128, 10, 1, 0.001);
+	m_pLSTMLayer = new LSTMLayer(28, 128, 1, 28, 0.01);
+	m_pFCLayer = new FCLayer(128, 10, 1, 0.01);
 	m_pFCLayer->m_pInputs = &m_pLSTMLayer->m_output;
-	m_pLSTMLayer->m_back_deltas = &m_pFCLayer->m_wei_grad;
+	m_pLSTMLayer->m_pBackDeltas = &m_pFCLayer->m_wei_grad;
 	memset(&m_trainInfo, 0, sizeof(m_trainInfo));
 	memset(&m_epoch, 0, sizeof(m_epoch));
 	m_trainInfo.layerNum = 2;
@@ -150,11 +151,17 @@ void dlNetwork::Train()
 	{
 		m_trainInfo.faults++;
 		m_epoch.faults++;
+		m_thousandsFaults++;
 	}
 	m_trainInfo.trainTimes++;
 	m_epoch.times++;
 	if (m_epoch.times % 1000 == 0)
-		DBG_PRINT("Epoch %d: %d%/%d, %f", m_epochVector.size(), m_epoch.faults, m_epoch.times, m_epoch.faults / m_epoch.times);
+	{
+		DBG_PRINT("Epoch %d: %d / %d, Thousands faults: %d, Total ER: %f\n", 
+			m_epochVector.size(), m_epoch.faults, m_epoch.times, m_thousandsFaults, (double)m_epoch.faults / m_epoch.times);
+		m_thousandsFaults = 0;
+	}
+		
 		
 }
 

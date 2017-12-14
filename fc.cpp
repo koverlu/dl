@@ -35,7 +35,7 @@ void FCLayer::InitWeight()
 	srand(1);
 	m_weights.resize(m_stateLen * m_inVecLen);
 	for (uint i = 0; i < m_weights.size(); i++)
-		m_weights[i] = ((2 * rand() / (double)(RAND_MAX)) - 1.0)/10000.0;
+		m_weights[i] = ((2 * rand() / (double)(RAND_MAX)) - 1.0);
 }
 
 void FCLayer::Forward()

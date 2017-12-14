@@ -121,7 +121,7 @@ void LSTMLayer::CalDelta()
 	
 	for (uint b = 0; b < m_batchSize; b++)
 	{
-		memcpy(&m_deltas[(b * m_batchSize + m_steps - 1) * m_stateLen], &m_back_deltas[b * m_stateLen], m_stateLen * sizeof(double));
+		memcpy(&m_deltas[(b * m_batchSize + m_steps - 1) * m_stateLen], &(*m_pBackDeltas)[b * m_stateLen], m_stateLen * sizeof(double));
 		for (int t = m_steps - 1; t >= 0; t--)
 		{
 			//
@@ -296,7 +296,7 @@ void LSTMLayer::InitWeight()
 	m_weights.resize(m_wtStride * 4);
 	for (uint i = 0; i < m_weights.size(); i++)
 		//m_weights[i] = 1.0/10000.0;
-		m_weights[i] = ((2 * rand() / (double)(RAND_MAX)) - 1.0)/10000.0;
+		m_weights[i] = ((2 * rand() / (double)(RAND_MAX)) - 1.0);
 }
 
 void LSTMLayer::UpdateWeights()

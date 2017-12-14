@@ -30,7 +30,7 @@ public:
 	vector<double> m_di;
 	vector<double> m_dc;
 	vector<double> m_do;
-	vector<double>* m_back_deltas;
+	vector<double>* m_pBackDeltas;
 	vector<double> m_output;
 	void ResetStates();
 	void GenerateInputs();

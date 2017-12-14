@@ -37,5 +37,5 @@ private:
 	vector<EPOCH_INFO> m_epochVector;
 	FCLayer* m_pFCLayer;
 	LSTMLayer* m_pLSTMLayer;
-
+	uint m_thousandsFaults;
 };

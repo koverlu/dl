@@ -150,7 +150,7 @@ void test()
 	delete[] inputImg;
 }
 
-void main(int argc, char * argv[])
+int main(int argc, char * argv[])
 {
 	if (argc == 2)
 	{
@@ -168,4 +168,5 @@ void main(int argc, char * argv[])
 	}
 	else
 		DBG_PRINT("Wrong argument!\n");	
+	return 1;
 }
