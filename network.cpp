@@ -22,7 +22,7 @@ void dlNetwork::Init()
 	m_pLSTMLayer = new LSTMLayer(28, 128, m_batchSize, 28, 0.001);
 	m_pFCLayer = new FCLayer(128, 10, m_batchSize, 0.001);
 	m_pFCLayer->m_pInputs = &m_pLSTMLayer->m_output;
-	m_pLSTMLayer->m_pBackDeltas = &m_pFCLayer->m_wei_grad;
+	m_pLSTMLayer->m_pBackDeltas = &m_pFCLayer->m_back_deltas;
 	memset(&m_trainInfo, 0, sizeof(m_trainInfo));
 	memset(&m_epoch, 0, sizeof(m_epoch));
 	m_trainInfo.layerNum = 2;

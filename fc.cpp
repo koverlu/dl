@@ -59,28 +59,38 @@ void FCLayer::BackWard()
 
 void FCLayer::CalDelta()
 {	
-	//Softmax
+
+	VectorResizeZero(m_back_deltas, m_batchSize * m_inVecLen);
 	for(uint b =0; b < m_batchSize; b++)
 	{
+		//Softmax delta
 		for (uint i = 0; i < m_stateLen; i++)
 		{
-			if (m_pTargets->at(b * m_stateLen + i) == 0)
-				m_deltas[b * m_stateLen + i] = m_states[b * m_stateLen + i];
+			uint offset = b * m_stateLen + i;
+			if (m_pTargets->at(offset) == 0)
+				m_deltas[offset] = m_states[offset];
 			else
-				m_deltas[b * m_stateLen + i] = m_states[b * m_stateLen + i] - 1.0;
+				m_deltas[offset] = m_states[offset] - 1.0;
 		}
+
+		VectorMM(m_deltas, 1, m_stateLen, b * m_stateLen,
+			m_weights, m_stateLen, m_inVecLen, 0, m_back_deltas, b * m_inVecLen);
 	}
 }
 
 void FCLayer::CalGradient()
 {
-	VectorResizeZero(m_wei_grad, m_totalStateLen * m_inVecLen);
-	VectorResizeZero(m_bias_grad, m_totalStateLen);
+	vector<double> sum_wei_grad(m_stateLen * m_inVecLen, 0);
+	vector<double> sum_bias_grad(m_stateLen, 0);
 	for (uint b = 0; b < m_batchSize; b++)
 	{
-		VectorMM(m_deltas, m_stateLen, 1, b * m_stateLen, *m_pInputs, 1, m_inVecLen, b * m_inVecLen, m_wei_grad, b * m_stateLen * m_inVecLen);
-		VectorAdd(m_deltas, m_bias_grad, m_bias_grad, m_stateLen, b * m_stateLen, b * m_stateLen, b * m_stateLen);
+		{
+			VectorMM(m_deltas, m_stateLen, 1, b * m_stateLen, *m_pInputs, 1, m_inVecLen, b * m_inVecLen, sum_wei_grad, 0);
+			VectorAdd(m_deltas, sum_bias_grad, sum_bias_grad, m_stateLen, b * m_stateLen, 0, 0);
+		}
 	}
+	m_wei_grad = sum_wei_grad;
+	m_bias_grad = sum_bias_grad;
 }
 
 void FCLayer::GradientCheck()
@@ -116,19 +126,12 @@ void FCLayer::GradientCheck()
 
 void FCLayer::UpdateWeights()
 {
-	vector<double> sum_wei_grad(m_stateLen * m_inVecLen, 0);
-	vector<double> sum_bias_grad(m_stateLen, 0);
-	for (uint b = 0; b < m_batchSize; b++)
-	{
-		VectorAdd(m_wei_grad, sum_wei_grad, sum_wei_grad, m_stateLen* m_inVecLen, b * m_stateLen * m_inVecLen, 0, 0);
-		VectorAdd(m_bias_grad, sum_bias_grad, sum_bias_grad, m_stateLen, b * m_stateLen, 0, 0);
-	}
 	vector<double> avg_factor(m_stateLen * m_inVecLen, -m_learnRate / m_batchSize);
-	VectorMul(sum_wei_grad, avg_factor, sum_wei_grad);
-	VectorAdd(m_weights, sum_wei_grad, m_weights);
+	VectorMul(m_wei_grad, avg_factor, m_wei_grad);
+	VectorAdd(m_weights, m_wei_grad, m_weights);
 	
-	VectorMul(sum_bias_grad, avg_factor, sum_bias_grad);
-	VectorAdd(m_bias, sum_bias_grad, m_bias);
+	VectorMul(m_bias_grad, avg_factor, m_bias_grad);
+	VectorAdd(m_bias, m_bias_grad, m_bias);
 }
 
 void FCLayer::SetConnection(vector<double>* pInputs, vector<double>* pTargets)

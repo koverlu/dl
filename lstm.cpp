@@ -51,6 +51,7 @@ void LSTMLayer::Forward()
 			uint state_offset = (b * m_steps + t) * m_stateLen;
 			uint offset_sub_one = t == 0 ? (b * m_stateLen) : (state_offset - m_stateLen);
 			vector<double>& states = t == 0 ? m_states0 : m_states;
+
 			//Forget gate
 			vector<double> ft(m_stateLen);
 			memcpy(&ft[0], &m_bias[0], m_stateLen * sizeof(double));

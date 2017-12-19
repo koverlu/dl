@@ -19,6 +19,7 @@ public:
 	vector<double>* m_pTargets;
 	vector<double> m_wei_grad;
 	vector<double> m_bias_grad;
+	vector<double> m_back_deltas;
 	void Forward();
 	void BackWard();
 	void CalDelta();

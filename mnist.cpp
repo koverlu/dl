@@ -58,7 +58,7 @@ void train()
 	imgFile.read((char*)inputImg, row * col * times);
 	imgFile.close();
 	
-	const uint batchSize = 1;
+	const uint batchSize = 128;
 	dlNetwork mnist("mnist", batchSize);
 	//Create Network, LSTM + FC
 	mnist.Init();
@@ -107,7 +107,7 @@ void train()
 				{
 					inputData[k * row * col + j] = (float)(*(inputImg + rand_idx[i * batchSize + k] * row * col + j));
 				}
-				targetData[input[rand_idx[i * batchSize + k]]] = 1;
+				targetData[input[rand_idx[i * batchSize + k]] + k * 10] = 1;
 			}			
 			mnist.Train();
 		}
