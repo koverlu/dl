@@ -57,55 +57,83 @@ void train()
 	uchar* inputImg = new uchar[row * col * times];
 	imgFile.read((char*)inputImg, row * col * times);
 	imgFile.close();
-
-	dlNetwork mnist("mnist");
+	
+	const uint batchSize = 1;
+	dlNetwork mnist("mnist", batchSize);
 	//Create Network, LSTM + FC
 	mnist.Init();
 	//Create Input Buffer and Target Buffer
-	vector<double> inputData(row * col);
-	vector<double> targetData(10);
+	vector<double> inputData(row * col * batchSize);
+	vector<double> targetData(10 * batchSize);
 	mnist.SetInputsAndTargets(&inputData, &targetData);
 
-	uint CPUTIME_START = GetTickCount();
 	uint epoch = 0;
 	double errorRate = 0;
 	double lastErrorRate = 1.0f;
+	vector<uint> rand_idx(times);
+	for (uint i = 0; i < times; i++)
+		rand_idx[i] = i;	
+	uint total_start = GetTickCount();
 	while (1)
 	{
-		for (uint i = 0; i < times; i++)
+		uint epoch_start = GetTickCount();
+		random_shuffle(rand_idx.begin(), rand_idx.end());
+		//! Manully check if the image match the lable
+		//for (uint i = 0; i < times / 128; i++)
+		//{
+		//	for (uint k = 0; k < 128; k++)
+		//	{
+		//		for (uint m = 0; m < row; m++)
+		//		{
+		//			for (uint n = 0; n < col; n++)
+		//			{
+		//				if ((float)(*(inputImg + rand_idx[i * 128 + k] * row * col + m * col + n)) > 0)
+		//					cout << 1 << " ";
+		//				else
+		//					cout << " " << " ";
+		//			}
+		//			cout << endl;
+		//		}
+		//		cout << ">>>>>>>>>> " << (int)input[rand_idx[i * 128 + k]] << " <<<<<<<<<<" << endl;
+		//	}
+		//}
+
+		for (uint i = 0; i < times / batchSize; i++)
 		{
-			for (uint j = 0; j < row * col; j++)
+			memset(&targetData[0], 0, 10 * batchSize * sizeof(double));
+			for (uint k = 0; k < batchSize; k++)
 			{
-				inputData[j] = (float)(*(inputImg + i * row * col + j));
-			}
-			memset(&targetData[0], 0, 10 * sizeof(double));
-			targetData[input[i]] = 1;
-			
+				for (uint j = 0; j < row * col; j++)
+				{
+					inputData[k * row * col + j] = (float)(*(inputImg + rand_idx[i * batchSize + k] * row * col + j));
+				}
+				targetData[input[rand_idx[i * batchSize + k]]] = 1;
+			}			
 			mnist.Train();
-			if (i % 100 == 0)
-			{
-				//memset(at, ' ', 10);
-				//at[input[i]] = '@';
-				//MatrixXf outputM = (mnist.GetLayer(2))->m_output;
-				//DBG_PRINT("%c%.2f %c%.2f %c%.2f %c%.2f %c%.2f %c%.2f %c%.2f %c%.2f %c%.2f %c%.2f\n",
-				//	at[0], outputM(0, 0), at[1], outputM(1, 0), at[2], outputM(2, 0), at[3], outputM(3, 0), at[4], outputM(4, 0),
-				//	at[5], outputM(5, 0), at[6], outputM(6, 0), at[7], outputM(7, 0), at[8], outputM(8, 0), at[9], outputM(9, 0));
-			}
 		}
-		mnist.EpochStatistics();
-		if (epoch % 10 == 0)
-		{
-			errorRate = 0;
-			errorRate = mnist.GetLastErrorRate(10);
-			if (errorRate > lastErrorRate)
-				break;
-			else
-				lastErrorRate = errorRate;
-		}
+		if(mnist.EpochStatistics() < 0.1)
+			break;
+
+		//if (epoch % 10 == 0)
+		//{
+		//	errorRate = 0;
+		//	errorRate = mnist.GetLastErrorRate(5);
+		//	if (errorRate > lastErrorRate)
+		//		break;
+		//	else
+		//		lastErrorRate = errorRate;
+		//}
+		//if (mnist.GetLastErrorRate(5) < 0.1)
+		//{
+			//break;
+		//}
 		epoch++;
+		mnist.SaveInfo();
+		uint epoch_end = GetTickCount();
+		DBG_PRINT("EPOCH %d: %d Seconds\n", epoch, (epoch_end - epoch_start) / 1000);
 	}
-	uint CPUTIME_END = GetTickCount();
-	DBG_PRINT("CPU TIME: %d Seconds\n", (CPUTIME_END - CPUTIME_START) / 1000);
+	uint total_end = GetTickCount();
+	DBG_PRINT("Total cpu time: %d Seconds\n", (total_end - total_start) / 1000);
 	delete[] input;
 	delete[] inputImg;
 }

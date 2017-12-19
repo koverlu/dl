@@ -47,9 +47,9 @@ void LSTMLayer::Forward()
 	{
 		for (uint t = 0; t < m_steps; t++)
 		{
-			uint input_offset = (b * m_batchSize + t) * m_inVecLen;
-			uint state_offset = (b * m_batchSize + t) * m_stateLen;
-			uint offset_sub_one = t == 0 ? (b * m_batchSize * m_stateLen) : (state_offset - m_stateLen);
+			uint input_offset = (b * m_steps + t) * m_inVecLen;
+			uint state_offset = (b * m_steps + t) * m_stateLen;
+			uint offset_sub_one = t == 0 ? (b * m_stateLen) : (state_offset - m_stateLen);
 			vector<double>& states = t == 0 ? m_states0 : m_states;
 			//Forget gate
 			vector<double> ft(m_stateLen);
@@ -105,7 +105,7 @@ void LSTMLayer::Forward()
 			VectorActive(tanhct, activ_tanh);
 			VectorMul(ot, tanhct, m_states, m_stateLen, 0, 0, state_offset);
 		}
-		memcpy(&m_output[b * m_stateLen], &m_states[(b * m_batchSize + m_steps - 1) * m_stateLen], m_stateLen * sizeof(double));
+		memcpy(&m_output[b * m_stateLen], &m_states[(b * m_steps + m_steps - 1) * m_stateLen], m_stateLen * sizeof(double));
 	}		
 }
 
@@ -121,11 +121,11 @@ void LSTMLayer::CalDelta()
 	
 	for (uint b = 0; b < m_batchSize; b++)
 	{
-		memcpy(&m_deltas[(b * m_batchSize + m_steps - 1) * m_stateLen], &(*m_pBackDeltas)[b * m_stateLen], m_stateLen * sizeof(double));
+		memcpy(&m_deltas[(b * m_steps + m_steps - 1) * m_stateLen], &(*m_pBackDeltas)[b * m_stateLen], m_stateLen * sizeof(double));
 		for (int t = m_steps - 1; t >= 0; t--)
 		{
 			//
-			uint state_offset = (b * m_batchSize + t) * m_stateLen;
+			uint state_offset = (b * m_steps + t) * m_stateLen;
 
 			//tanh(ct)			
 			vector<double> tanhct(m_stateLen);
@@ -151,7 +151,7 @@ void LSTMLayer::CalDelta()
 			//delta_ft
 			//tmp = 1 - ft
 			VectorOneSub(m_ft, tmp, m_stateLen, state_offset, 0);
-			uint offset_sub_one = t == 0 ? (b * m_batchSize * m_stateLen) : (state_offset - m_stateLen);
+			uint offset_sub_one = t == 0 ? (b * m_stateLen) : (state_offset - m_stateLen);
 			vector<double>& lstates = t == 0 ? m_lstates0 : m_lstates;
 			VectorMul(delta_ot_tanh, lstates, mul_tmp, m_stateLen, 0, offset_sub_one, 0);
 			VectorMul(mul_tmp, m_ft, mul_tmp, m_stateLen, 0, state_offset, 0);
@@ -192,8 +192,8 @@ void LSTMLayer::CalGradient()
 	{
 		for (uint t = 0; t < m_steps; t++)
 		{
-			uint state_offset = (b * m_batchSize + t) * m_stateLen;
-			uint offset_sub_one = t == 0 ? (b * m_batchSize * m_stateLen) : (state_offset - m_stateLen);
+			uint state_offset = (b * m_steps + t) * m_stateLen;
+			uint offset_sub_one = t == 0 ? (b * m_stateLen) : (state_offset - m_stateLen);
 			vector<double>& states = t == 0 ? m_states0 : m_states;
 			VectorMM(m_do, m_stateLen, 1, state_offset, states, 1, m_stateLen, offset_sub_one, sum_wei_grad, m_wtStride * 3);
 			VectorMM(m_df, m_stateLen, 1, state_offset, states, 1, m_stateLen, offset_sub_one, sum_wei_grad, 0);
@@ -206,8 +206,8 @@ void LSTMLayer::CalGradient()
 			VectorAdd(m_dc, sum_bias_grad, sum_bias_grad, m_stateLen, 0, m_stateLen * 2, m_stateLen * 2);
 		}
 		//Calculate 
-		uint last_offset = (b * m_batchSize + m_steps - 1)  * m_stateLen;
-		uint input_offset = (b * m_batchSize + m_steps - 1) * m_inVecLen;
+		uint last_offset = (b * m_steps + m_steps - 1)  * m_stateLen;
+		uint input_offset = (b * m_steps + m_steps - 1) * m_inVecLen;
 		uint wtxoff = m_stateLen * m_stateLen;
 		VectorMM(m_do, m_stateLen, 1, last_offset, (*m_pInputs), 1, m_inVecLen, input_offset, sum_wei_grad, m_wtStride * 3 + wtxoff);
 		VectorMM(m_df, m_stateLen, 1, last_offset, (*m_pInputs), 1, m_inVecLen, input_offset, sum_wei_grad, wtxoff);
@@ -291,12 +291,12 @@ void LSTMLayer::InitWeight()
 {
 	//bf, bi, bc, bo
 	VectorResizeZero(m_bias, m_stateLen * 4);
-	srand(1);
+	srand(2);
 	//Wf, Wi, Wc, Wo
 	m_weights.resize(m_wtStride * 4);
 	for (uint i = 0; i < m_weights.size(); i++)
 		//m_weights[i] = 1.0/10000.0;
-		m_weights[i] = ((2 * rand() / (double)(RAND_MAX)) - 1.0);
+		m_weights[i] = rand() / ((double)RAND_MAX / 2.0) - 1.0;
 }
 
 void LSTMLayer::UpdateWeights()

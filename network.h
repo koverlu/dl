@@ -19,7 +19,7 @@ struct EPOCH_INFO
 class dlNetwork
 {
 public:
-	dlNetwork(char* name);
+	dlNetwork(char * name, uint batchSize);
 	~dlNetwork();
 	void Init();
 	void LoadInfo();
@@ -38,4 +38,5 @@ private:
 	FCLayer* m_pFCLayer;
 	LSTMLayer* m_pLSTMLayer;
 	uint m_thousandsFaults;
+	uint m_batchSize;
 };

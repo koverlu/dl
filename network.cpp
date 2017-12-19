@@ -5,8 +5,9 @@
 #include "common.h"
 #include <fstream>
 #include <iostream>
-dlNetwork::dlNetwork(char * name) :
-	m_name(name)
+dlNetwork::dlNetwork(char * name, uint batchSize) :
+	m_name(name),
+	m_batchSize(batchSize)
 {
 	m_thousandsFaults = 0;
 }
@@ -18,8 +19,8 @@ dlNetwork::~dlNetwork()
 
 void dlNetwork::Init()
 {
-	m_pLSTMLayer = new LSTMLayer(28, 128, 1, 28, 0.01);
-	m_pFCLayer = new FCLayer(128, 10, 1, 0.01);
+	m_pLSTMLayer = new LSTMLayer(28, 128, m_batchSize, 28, 0.001);
+	m_pFCLayer = new FCLayer(128, 10, m_batchSize, 0.001);
 	m_pFCLayer->m_pInputs = &m_pLSTMLayer->m_output;
 	m_pLSTMLayer->m_pBackDeltas = &m_pFCLayer->m_wei_grad;
 	memset(&m_trainInfo, 0, sizeof(m_trainInfo));
@@ -68,7 +69,7 @@ void dlNetwork::SaveInfo()
 double dlNetwork::EpochStatistics()
 {
 	double errorRate = (double)m_epoch.faults / m_epoch.times;
-	DBG_PRINT("%f\n", errorRate);
+	DBG_PRINT("EPOCH %d total ER: %f\n", m_epochVector.size(), errorRate);
 	m_epochVector.push_back(m_epoch);
 	memset(&m_epoch, 0, sizeof(m_epoch));
 	return errorRate;
@@ -96,7 +97,7 @@ double dlNetwork::GetLastErrorRate(uint num)
 		}
 	}
 	double errorRate = (double)errorSum / timsSum;
-	DBG_PRINT("@@@ %f\n", errorRate);
+	DBG_PRINT("Last %d epoch ER %f\n", size < num ? size : num, errorRate);
 	return  errorRate;
 }
 
@@ -145,20 +146,25 @@ void dlNetwork::Train()
 	m_pFCLayer->Forward();
 	m_pFCLayer->BackWard();
 	m_pLSTMLayer->BackWard();
-	uint targetValue = VectorMaxIdx(*m_pFCLayer->m_pTargets);
-	uint OutputValue = VectorMaxIdx(m_pFCLayer->m_states);
-	if (OutputValue != targetValue)
+	for (uint b = 0; b < m_batchSize; b++)
 	{
-		m_trainInfo.faults++;
-		m_epoch.faults++;
-		m_thousandsFaults++;
+		uint targetValue = VectorMaxIdx(*m_pFCLayer->m_pTargets, 10, b * 10);
+		uint OutputValue = VectorMaxIdx(m_pFCLayer->m_states, 10, b * 10);
+		if (OutputValue != targetValue)
+		{
+			m_trainInfo.faults++;
+			m_epoch.faults++;
+			m_thousandsFaults++;
+		}
+		m_epoch.times++;
 	}
+
 	m_trainInfo.trainTimes++;
-	m_epoch.times++;
-	if (m_epoch.times % 1000 == 0)
+	uint period = m_batchSize == 1 ? 1000 : m_batchSize * 10;
+	if (m_epoch.times % period == 0)
 	{
-		DBG_PRINT("Epoch %d: %d / %d, Thousands faults: %d, Total ER: %f\n", 
-			m_epochVector.size(), m_epoch.faults, m_epoch.times, m_thousandsFaults, (double)m_epoch.faults / m_epoch.times);
+		DBG_PRINT("Epoch %d: %d / %d, Mini-Batch ER: %f, Total ER: %f, W0 = %f\n", 
+			m_epochVector.size(), m_epoch.faults, m_epoch.times, (double)m_thousandsFaults / period, (double)m_epoch.faults / m_epoch.times, m_pLSTMLayer->m_weights[0]);
 		m_thousandsFaults = 0;
 	}
 		
