@@ -101,45 +101,6 @@ double dlNetwork::GetLastErrorRate(uint num)
 	return  errorRate;
 }
 
-//void dlNetwork::CalGradient(MatrixXf & input, MatrixXf & target)
-//{
-//	m_layers[0]->SetInputData(input);
-//	for (size_t i = 1; i < m_trainInfo.layerNum; i++)
-//	{
-//		m_layers[i]->CalOutput();
-//	}
-//	MatrixXf data = target;
-//	MatrixXf Gradients;
-//	MatrixXf delta = MatrixXf::Zero(m_layers[2]->m_outputSize, 1);
-//	m_layers[2]->CalDelta(data, delta);
-//	Gradients = delta * m_layers[1]->m_output.transpose();
-//	double epsilon = 0.0001;
-//	double ed = 0;
-//	for (size_t i = 0; i < m_layers[2]->m_weight.rows(); i++)
-//	{
-//		for (size_t j = 0; j < m_layers[2]->m_weight.cols(); j++)
-//		{
-//			m_layers[2]->m_weight(i, j) = m_layers[2]->m_weight(i, j) + epsilon;
-//			m_layers[1]->CalOutput();
-//			m_layers[2]->CalOutput();
-//			for (size_t o = 0; o < m_layers[2]->m_outputSize; o++)
-//			{
-//				ed += (data(o, 0) - m_layers[2]->m_output(o, 0)) * (data(o, 0) - m_layers[2]->m_output(o, 0));
-//			}
-//			m_layers[2]->m_weight(i, j) = m_layers[2]->m_weight(i, j) - 2 *  epsilon;
-//			m_layers[1]->CalOutput();
-//			m_layers[2]->CalOutput();
-//			for (size_t o = 0; o < m_layers[2]->m_outputSize; o++)
-//			{
-//				ed -= (data(o, 0) - m_layers[2]->m_output(o, 0)) * (data(o, 0) - m_layers[2]->m_output(o, 0));
-//			}
-//			m_layers[2]->m_weight(i, j) = m_layers[2]->m_weight(i, j) + epsilon;			
-//			cout << ed / 4 / epsilon << " " << Gradients(i,j) <<endl;
-//			ed = 0;
-//		}
-//	}
-//}
-
 void dlNetwork::Train()
 {
 	m_pLSTMLayer->Forward();

@@ -58,7 +58,7 @@ void train()
 	imgFile.read((char*)inputImg, row * col * times);
 	imgFile.close();
 	
-	const uint batchSize = 128;
+	const uint batchSize = 1;
 	dlNetwork mnist("mnist", batchSize);
 	//Create Network, LSTM + FC
 	mnist.Init();
@@ -126,11 +126,11 @@ void train()
 		//if (mnist.GetLastErrorRate(5) < 0.1)
 		//{
 			//break;
-		//}
-		epoch++;
+		//}		
 		mnist.SaveInfo();
 		uint epoch_end = GetTickCount();
 		DBG_PRINT("EPOCH %d: %d Seconds\n", epoch, (epoch_end - epoch_start) / 1000);
+		epoch++;
 	}
 	uint total_end = GetTickCount();
 	DBG_PRINT("Total cpu time: %d Seconds\n", (total_end - total_start) / 1000);

@@ -126,7 +126,8 @@ void FCLayer::GradientCheck()
 
 void FCLayer::UpdateWeights()
 {
-	vector<double> avg_factor(m_stateLen * m_inVecLen, -m_learnRate / m_batchSize);
+	//vector<double> avg_factor(m_stateLen * m_inVecLen, -m_learnRate / m_batchSize);
+	vector<double> avg_factor(m_stateLen * m_inVecLen, -m_learnRate);
 	VectorMul(m_wei_grad, avg_factor, m_wei_grad);
 	VectorAdd(m_weights, m_wei_grad, m_weights);
 	

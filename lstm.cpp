@@ -215,7 +215,6 @@ void LSTMLayer::CalGradient()
 		VectorMM(m_di, m_stateLen, 1, last_offset, (*m_pInputs), 1, m_inVecLen, input_offset, sum_wei_grad, m_wtStride * 1 + wtxoff);
 		VectorMM(m_dc, m_stateLen, 1, last_offset, (*m_pInputs), 1, m_inVecLen, input_offset, sum_wei_grad, m_wtStride * 2 + wtxoff);
 	}
-	//
 	m_wei_grad = sum_wei_grad;
 	m_bias_grad = sum_bias_grad;
 }
@@ -273,19 +272,6 @@ void LSTMLayer::ResetStates()
 	VectorResizeZero(m_di, totalStateLen);
 	VectorResizeZero(m_dc, totalStateLen);
 	VectorResizeZero(m_do, totalStateLen);
-	//m_states.resize(totalStateLen, 0);
-	//m_states0.resize(m_batchSize * m_stateLen, 0);
-	//m_lstates.resize(totalStateLen, 0);
-	//m_lstates0.resize(m_batchSize * m_stateLen, 0);
-	//m_deltas.resize(totalStateLen, 0);
-	//m_ft.resize(totalStateLen, 0);
-	//m_it.resize(totalStateLen, 0);
-	//m_ct.resize(totalStateLen, 0);
-	//m_ot.resize(totalStateLen, 0);
-	//m_df.resize(totalStateLen, 0);
-	//m_di.resize(totalStateLen, 0);
-	//m_dc.resize(totalStateLen, 0);
-	//m_do.resize(totalStateLen, 0);
 }
 
 void LSTMLayer::InitWeight()
@@ -302,7 +288,8 @@ void LSTMLayer::InitWeight()
 
 void LSTMLayer::UpdateWeights()
 {
-	vector<double> avg_factor(m_wtStride * 4, -m_learnRate / m_batchSize);
+	//vector<double> avg_factor(m_wtStride * 4, -m_learnRate / m_batchSize);
+	vector<double> avg_factor(m_wtStride * 4, -m_learnRate);
 	VectorMul(m_wei_grad, avg_factor, m_wei_grad);
 	VectorAdd(m_weights, m_wei_grad, m_weights);
 
